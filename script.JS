@@ -3,36 +3,51 @@
 // Kunci untuk localStorage
 const APP_KEY = 'fokusMasaDepanDB';
 
-// State global aplikasi (Database)
-let db = {
-    saldo: 0,
-    dream: {
-        title: 'Membeli Motor Baru',
-        targetAmount: 10000000,
-        targetDate: '2026-12-31'
-    },
-    settings: {
-        limitBulanan: 2000000,
-        motivasi: {
-            kuning: 'Hati-hati, pengeluaranmu banyak!',
-            merah: 'STOP! Kamu sudah boros!'
+// --- Fungsi Helper (Utility) ---
+// Perlu diletakkan di atas agar bisa digunakan oleh getDefaultDB()
+function getISODate(date) {
+    // Mengembalikan format YYYY-MM-DD
+    return date.getFullYear() + '-' +
+           ('0' + (date.getMonth() + 1)).slice(-2) + '-' +
+           ('0' + date.getDate()).slice(-2);
+}
+
+// Fungsi BARU untuk data default yang KOSONG
+function getDefaultDB() {
+    return {
+        saldo: 0,
+        dream: {
+            title: 'Atur Impian Anda!',
+            targetAmount: 0,
+            targetDate: getISODate(new Date())
         },
-        kategori: [
-            '🍔 Makanan',
-            '🚌 Transportasi',
-            '💡 Tagihan',
-            '🏠 Sewa/Cicilan',
-            '🎬 Hiburan',
-            '👕 Belanja',
-            'Lainnya'
-        ],
-        notifikasi: {
-            aktif: false,
-            waktu: '09:00'
-        }
-    },
-    transactions: [] // { id, type: 'pemasukan'/'pengeluaran', amount, category, note, date }
-};
+        settings: {
+            limitBulanan: 0, // Diubah menjadi 0
+            motivasi: {
+                kuning: 'Hati-hati, pengeluaranmu banyak!',
+                merah: 'STOP! Kamu sudah boros!'
+            },
+            kategori: [
+                '🍔 Makanan',
+                '🚌 Transportasi',
+                '💡 Tagihan',
+                '🏠 Sewa/Cicilan',
+                '🎬 Hiburan',
+                '👕 Belanja',
+                'Lainnya'
+            ],
+            notifikasi: {
+                aktif: false,
+                waktu: '09:00'
+            }
+        },
+        transactions: [] // { id, type: 'pemasukan'/'pengeluaran', amount, category, note, date }
+    };
+}
+
+// State global aplikasi (Database)
+// Diinisialisasi dengan data default yang KOSONG
+let db = getDefaultDB();
 
 // Variabel state sementara
 let currentTxType = 'pengeluaran'; // 'pemasukan' atau 'pengeluaran'
@@ -46,7 +61,11 @@ document.addEventListener('DOMContentLoaded', () => {
     navigateTo('page-dashboard'); // Mulai dari dashboard
     
     // Set tanggal di form transaksi ke hari ini
-    document.getElementById('form-tx-tanggal').value = getISODate(new Date());
+    // Cek dulu apakah elemennya ada (mungkin tidak di semua halaman)
+    const txDateInput = document.getElementById('form-tx-tanggal');
+    if (txDateInput) {
+        txDateInput.value = getISODate(new Date());
+    }
 });
 
 // --- Manajemen Database (localStorage) ---
@@ -63,8 +82,9 @@ function loadDB() {
             db.settings.notifikasi = { aktif: false, waktu: '09:00' };
         }
     } else {
-        // Jika data tidak ada, simpan data default
-        saveDB();
+        // Jika data tidak ada (setelah reset atau install baru)
+        db = getDefaultDB(); // Gunakan data default KOSONG
+        saveDB(); // Simpan data kosong ini
     }
 }
 
@@ -79,7 +99,8 @@ function saveDB() {
 
 // --- Navigasi Halaman & Modal ---
 
-function navigateTo(pageId) {
+// DAFTARKAN FUNGSI KE "WINDOW" AGAR BISA DIAKSES ONCLICK DARI SERVER
+window.navigateTo = function(pageId) {
     // Sembunyikan semua halaman
     document.querySelectorAll('.page').forEach(page => {
         page.classList.remove('active');
@@ -114,7 +135,7 @@ function navigateTo(pageId) {
     }
 }
 
-function showModal(modalId) {
+window.showModal = function(modalId) {
     const modal = document.getElementById(modalId);
     if (modal) {
         modal.classList.add('active');
@@ -134,13 +155,16 @@ function showModal(modalId) {
     }
 }
 
-function hideModal(modalId) {
-    document.getElementById(modalId).classList.remove('active');
+window.hideModal = function(modalId) {
+    const modal = document.getElementById(modalId);
+    if (modal) {
+        modal.classList.remove('active');
+    }
 }
 
 // --- ALUR 1: Tambah Transaksi ---
 
-function switchTxType(type) {
+window.switchTxType = function(type) {
     currentTxType = type;
     const tabPengeluaran = document.getElementById('tab-pengeluaran');
     const tabPemasukan = document.getElementById('tab-pemasukan');
@@ -157,7 +181,7 @@ function switchTxType(type) {
     }
 }
 
-function saveTransaction() {
+window.saveTransaction = function() {
     // 1. Ambil data dari form
     const amount = parseFloat(document.getElementById('form-tx-nominal').value);
     const category = (currentTxType === 'pengeluaran') ? document.getElementById('form-tx-kategori').value : 'Pemasukan';
@@ -203,7 +227,7 @@ function saveTransaction() {
 
 // --- ALUR 2: Halaman Histori ---
 
-function renderHistoryPage() {
+window.renderHistoryPage = function() {
     const filter = document.getElementById('history-filter-time').value;
     const filteredTx = filterTransactions(db.transactions, filter);
     
@@ -257,7 +281,7 @@ function renderHistoryPage() {
 
 // --- ALUR 3: Halaman Analisis ---
 
-function renderAnalysisPage() {
+window.renderAnalysisPage = function() {
     const filter = document.getElementById('analysis-filter-time').value;
     // Filter hanya pengeluaran
     const allPengeluaran = db.transactions.filter(tx => tx.type === 'pengeluaran');
@@ -336,9 +360,9 @@ function renderSettingsLimitPage() {
     document.getElementById('setting-limit-bulanan').value = db.settings.limitBulanan;
 }
 
-function saveSettingsLimit() {
+window.saveSettingsLimit = function() {
     const limit = parseFloat(document.getElementById('setting-limit-bulanan').value);
-    if (limit && limit >= 0) {
+    if (!isNaN(limit) && limit >= 0) { // Validasi lebih ketat
         db.settings.limitBulanan = limit;
         saveDB();
         showToast("Limit berhasil disimpan!", 'success');
@@ -361,7 +385,7 @@ function renderSettingsKategoriPage() {
     });
 }
 
-function addCategory() {
+window.addCategory = function() {
     const inputEl = document.getElementById('setting-kategori-baru');
     const newKategori = inputEl.value.trim();
     if (newKategori) {
@@ -374,7 +398,7 @@ function addCategory() {
     }
 }
 
-function deleteCategory(index) {
+window.deleteCategory = function(index) {
     // Konfirmasi sederhana (karena window.confirm tidak boleh)
     // Di aplikasi nyata, ini seharusnya modal kustom
     const kategori = db.settings.kategori[index];
@@ -391,7 +415,7 @@ function renderSettingsMotivasiPage() {
     document.getElementById('setting-motivasi-merah').value = db.settings.motivasi.merah;
 }
 
-function saveSettingsMotivasi() {
+window.saveSettingsMotivasi = function() {
     db.settings.motivasi.kuning = document.getElementById('setting-motivasi-kuning').value;
     db.settings.motivasi.merah = document.getElementById('setting-motivasi-merah').value;
     saveDB();
@@ -404,7 +428,7 @@ function renderSettingsNotifikasiPage() {
     document.getElementById('setting-notif-waktu').value = db.settings.notifikasi.waktu;
 }
 
-function saveSettingsNotifikasi() {
+window.saveSettingsNotifikasi = function() {
     db.settings.notifikasi.aktif = document.getElementById('setting-notif-aktif').checked;
     db.settings.notifikasi.waktu = document.getElementById('setting-notif-waktu').value;
     saveDB();
@@ -412,9 +436,27 @@ function saveSettingsNotifikasi() {
     navigateTo('page-settings');
 }
 
+// --- FUNGSI RESET APLIKASI ---
+window.resetApp = function() {
+    // 1. Sembunyikan modal konfirmasi
+    hideModal('modal-confirm-reset');
+    
+    // 2. Hapus data dari localStorage
+    localStorage.removeItem(APP_KEY);
+    
+    // 3. Tampilkan toast (opsional, tapi bagus untuk UX)
+    showToast("Data berhasil direset. Memuat ulang...", 'success');
+    
+    // 4. Muat ulang aplikasi setelah 1 detik agar toast terlihat
+    setTimeout(() => {
+        location.reload();
+    }, 1000);
+}
+
+
 // --- ALUR 5: Ubah Impian ---
 
-function saveDream() {
+window.saveDream = function() {
     // 1. Ambil data
     const title = document.getElementById('form-dream-title').value;
     const targetAmount = parseFloat(document.getElementById('form-dream-target').value);
@@ -449,7 +491,7 @@ function renderDashboard() {
     
     // 2. Render Impian (Alur 5)
     const { title, targetAmount, targetDate } = db.dream;
-    const progress = (db.saldo / targetAmount) * 100;
+    const progress = (targetAmount > 0) ? (db.saldo / targetAmount) * 100 : 0; // Cegah dibagi 0
     const progressPercent = Math.min(Math.max(progress, 0), 100); // Batasi 0-100%
     
     document.getElementById('dash-dream-title').textContent = title;
@@ -467,7 +509,7 @@ function renderDashboard() {
     ).reduce((sum, tx) => sum + tx.amount, 0);
     
     const sisa = limit - pengeluaranBulanIni;
-    const sisaPercent = (sisa / limit) * 100;
+    const sisaPercent = (limit > 0) ? (sisa / limit) * 100 : 0; // Cegah dibagi 0
     
     document.getElementById('dash-budget-limit').textContent = formatRupiah(limit);
     document.getElementById('dash-budget-sisa').textContent = formatRupiah(sisa);
@@ -475,7 +517,11 @@ function renderDashboard() {
     const indicatorEl = document.getElementById('dash-budget-indicator');
     const warningEl = document.getElementById('dash-budget-warning');
     
-    if (sisaPercent > 40) { // Hijau
+    if (limit === 0) { // Jika budget 0, jangan tampilkan indikator
+        indicatorEl.className = 'px-3 py-1 rounded-full text-sm font-semibold text-white bg-gray-400';
+        indicatorEl.textContent = '...';
+        warningEl.textContent = 'Atur limit budget Anda di Pengaturan.';
+    } else if (sisaPercent > 40) { // Hijau
         indicatorEl.className = 'px-3 py-1 rounded-full text-sm font-semibold text-white bg-success';
         indicatorEl.textContent = 'Aman';
         warningEl.textContent = '';
@@ -537,15 +583,11 @@ function formatDate(dateString, options = { day: 'numeric', month: 'short', year
     }
 }
 
-function getISODate(date) {
-    // Mengembalikan format YYYY-MM-DD
-    return date.getFullYear() + '-' +
-           ('0' + (date.getMonth() + 1)).slice(-2) + '-' +
-           ('0' + date.getDate()).slice(-2);
-}
+// getISODate() dipindahkan ke atas
 
 function populateCategorySelects() {
     const selectEl = document.getElementById('form-tx-kategori');
+    if (!selectEl) return; // Tambahkan penjaga jika elemen tidak ada
     selectEl.innerHTML = ''; // Kosongkan
     db.settings.kategori.forEach(kategori => {
         const option = document.createElement('option');
@@ -557,22 +599,28 @@ function populateCategorySelects() {
 
 function filterTransactions(transactions, filter) {
     const now = new Date();
-    const today = getISODate(now);
+    const today = getISODate(new Date()); // Perbaiki agar 'now' tidak berubah
     
+    const year = now.getFullYear();
+    const month = now.getMonth();
+    const day = now.getDate();
+    const dayOfWeek = now.getDay(); // 0 = Minggu, 1 = Senin, ..., 6 = Sabtu
+
     // Awal minggu ini (Minggu)
-    const firstDayOfWeek = new Date(now.setDate(now.getDate() - now.getDay()));
+    const firstDayOfWeek = new Date(year, month, day - dayOfWeek);
     const startOfWeek = getISODate(firstDayOfWeek);
     
     // Awal bulan ini
-    const startOfMonth = getISODate(new Date(now.getFullYear(), now.getMonth(), 1));
+    const startOfMonth = getISODate(new Date(year, month, 1));
     
     // Awal tahun ini
-    const startOfYear = getISODate(new Date(now.getFullYear(), 0, 1));
+    const startOfYear = getISODate(new Date(year, 0, 1));
     
     switch (filter) {
         case 'today':
             return transactions.filter(tx => tx.date === today);
         case 'week':
+            // Perbaiki logika filter minggu: harus startOfWeek <= date <= today
             return transactions.filter(tx => tx.date >= startOfWeek && tx.date <= today);
         case 'month':
             return transactions.filter(tx => tx.date >= startOfMonth && tx.date <= today);
@@ -586,6 +634,7 @@ function filterTransactions(transactions, filter) {
 
 function showToast(message, type = 'default') {
     const toast = document.getElementById('toast');
+    if (!toast) return; // Penjaga
     toast.textContent = message;
     
     // Atur warna berdasarkan tipe
